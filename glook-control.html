@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GLOOK · Control Caribe Vivo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<style>
+  :root{
+    --navy:#1B1E4B;
+    --navy-2:#272B6B;
+    --indigo:#4A3FB5;
+    --coral:#FF6F4C;
+    --amber:#F2A93B;
+    --green:#2E9E6D;
+    --red:#D8483F;
+    --bg:#F5F5FA;
+    --card:#FFFFFF;
+    --line:#E5E4F0;
+    --text:#22213A;
+    --text-dim:#6B6A85;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--sans);background:var(--bg);color:var(--text);}
+  a{color:inherit;}
+  .app{display:flex;min-height:100vh;}
+
+  /* Sidebar */
+  .sidebar{width:230px;flex:0 0 230px;background:linear-gradient(180deg,var(--navy),var(--navy-2));color:#fff;padding:22px 14px;position:sticky;top:0;height:100vh;overflow-y:auto;}
+  .brand{display:flex;align-items:center;gap:10px;padding:0 8px 20px 8px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:14px;}
+  .brand-mark{width:34px;height:34px;border-radius:9px;background:var(--coral);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#1B1E4B;flex:none;}
+  .brand-text b{display:block;font-size:15px;letter-spacing:.3px;}
+  .brand-text span{display:block;font-size:11px;color:rgba(255,255,255,.6);}
+  nav{display:flex;flex-direction:column;gap:2px;}
+  .navbtn{display:flex;align-items:center;gap:10px;text-align:left;background:none;border:none;color:rgba(255,255,255,.72);padding:10px 10px;border-radius:8px;cursor:pointer;font-size:13.5px;font-family:var(--sans);}
+  .navbtn:hover{background:rgba(255,255,255,.06);color:#fff;}
+  .navbtn.active{background:rgba(255,255,255,.14);color:#fff;font-weight:600;}
+  .navbtn .ic{width:18px;text-align:center;font-size:14px;}
+  .nav-section{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.4);margin:16px 10px 6px;}
+
+  /* Main */
+  .main{flex:1;padding:28px 34px;max-width:1200px;}
+  .pagehead{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap;gap:10px;}
+  .pagehead h1{font-size:22px;margin:0 0 4px;letter-spacing:-.2px;}
+  .pagehead p{margin:0;color:var(--text-dim);font-size:13.5px;}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:18px;}
+  .card h2{font-size:14.5px;margin:0 0 14px;letter-spacing:.1px;}
+  .card h2 .cnt{color:var(--text-dim);font-weight:400;font-size:12.5px;}
+
+  .grid{display:grid;gap:14px;}
+  .grid-4{grid-template-columns:repeat(4,1fr);}
+  .grid-3{grid-template-columns:repeat(3,1fr);}
+  .grid-2{grid-template-columns:repeat(2,1fr);}
+  @media(max-width:900px){.grid-4{grid-template-columns:repeat(2,1fr);}.grid-3{grid-template-columns:repeat(2,1fr);}}
+
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;}
+  .kpi .lbl{font-size:11.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+  .kpi .val{font-size:24px;font-weight:700;font-family:var(--mono);}
+  .kpi .sub{font-size:11.5px;color:var(--text-dim);margin-top:4px;}
+
+  form.inline{display:grid;gap:10px;margin-bottom:16px;}
+  .field{display:flex;flex-direction:column;gap:5px;}
+  .field label{font-size:11.5px;color:var(--text-dim);font-weight:600;}
+  .field input,.field select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;font-family:var(--sans);background:#fbfbfe;}
+  .field input:focus,.field select:focus{outline:2px solid var(--indigo);outline-offset:1px;background:#fff;}
+  .refpreview{font-family:var(--mono);background:#EFEEFB;border:1px dashed var(--indigo);border-radius:8px;padding:8px 10px;font-size:14px;color:var(--indigo);font-weight:700;}
+
+  .btn{background:var(--indigo);color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:var(--sans);}
+  .btn:hover{background:#3d33a0;}
+  .btn.secondary{background:#fff;color:var(--indigo);border:1px solid var(--indigo);}
+  .btn.secondary:hover{background:#F0EFFC;}
+  .btn.ghost{background:none;color:var(--text-dim);border:1px solid var(--line);}
+  .btn.danger{background:none;color:var(--red);border:none;padding:4px 8px;font-size:12px;}
+  .btn.danger:hover{text-decoration:underline;}
+  .btn.sm{padding:6px 12px;font-size:12.5px;}
+  .btnrow{display:flex;gap:10px;flex-wrap:wrap;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);padding:8px 10px;border-bottom:2px solid var(--line);white-space:nowrap;}
+  tbody td{padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;}
+  tbody tr:hover{background:#FAFAFF;}
+  .tablewrap{overflow-x:auto;}
+  .refcode{font-family:var(--mono);font-weight:700;color:var(--navy-2);background:#EFEEFB;padding:2px 6px;border-radius:5px;font-size:12px;}
+  .tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;}
+  .tag.ok{background:#E4F6EC;color:var(--green);}
+  .tag.warn{background:#FDF0DD;color:#B4791F;}
+  .tag.bad{background:#FBE6E4;color:var(--red);}
+  .empty{color:var(--text-dim);font-size:13px;padding:20px 6px;text-align:center;}
+  .hint{font-size:12px;color:var(--text-dim);margin-top:-6px;margin-bottom:10px;}
+  .badgebar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;}
+  .pill{background:#EFEEFB;color:var(--navy-2);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;}
+  select#navSelectMobile{display:none;}
+  @media(max-width:760px){
+    .sidebar{display:none;}
+    .main{padding:18px;}
+  }
+
+  /* Pantalla de PIN */
+  #pin-gate{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--navy),var(--navy-2));}
+  .pin-card{background:#fff;border-radius:16px;padding:36px 34px;width:100%;max-width:340px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+  .pin-card .brand-mark{margin:0 auto 14px;}
+  .pin-card h1{font-size:18px;margin:0 0 4px;}
+  .pin-card p{font-size:13px;color:var(--text-dim);margin:0 0 20px;}
+  .pin-card input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;text-align:center;letter-spacing:2px;margin-bottom:12px;font-family:var(--mono);}
+  .pin-card .err{color:var(--red);font-size:12.5px;min-height:16px;margin-bottom:8px;}
+  .pin-card .btn{width:100%;padding:11px;}
+  #app-root{display:none;}
+  #sync-badge{position:fixed;bottom:14px;right:16px;font-size:11.5px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:5px 12px;color:var(--text-dim);box-shadow:0 4px 14px rgba(0,0,0,.06);}
+  #sync-badge.ok{color:var(--green);}
+  #sync-badge.err{color:var(--red);}
+</style>
+</head>
+<body>
+
+<div id="pin-gate">
+  <div class="pin-card">
+    <div class="brand-mark" style="width:46px;height:46px;font-size:20px;">G</div>
+    <h1>GLOOK · Caribe Vivo</h1>
+    <p>Ingresa el PIN de equipo para entrar al control de producción y ventas.</p>
+    <form id="form-pin">
+      <input id="input-pin" type="password" inputmode="numeric" placeholder="PIN" autocomplete="off" required>
+      <div class="err" id="pin-error"></div>
+      <button class="btn" type="submit">Entrar</button>
+    </form>
+  </div>
+</div>
+
+<div id="app-root">
+<div class="app">
+  <div class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">G</div>
+      <div class="brand-text"><b>GLOOK</b><span>Caribe Vivo · Control</span></div>
+    </div>
+    <div class="nav-section">General</div>
+    <nav>
+      <button class="navbtn" data-tab="dashboard"><span class="ic">◆</span>Dashboard</button>
+    </nav>
+    <div class="nav-section">Inventario</div>
+    <nav>
+      <button class="navbtn" data-tab="produccion"><span class="ic">▤</span>Producción</button>
+    </nav>
+    <div class="nav-section">Vendedores / Comisión</div>
+    <nav>
+      <button class="navbtn" data-tab="ciclos"><span class="ic">◷</span>Ciclos</button>
+      <button class="navbtn" data-tab="vendedores"><span class="ic">◍</span>Vendedores</button>
+      <button class="navbtn" data-tab="entregas"><span class="ic">→</span>Entrega de producto</button>
+      <button class="navbtn" data-tab="ventasvendedor"><span class="ic">$</span>Ventas de vendedores</button>
+      <button class="navbtn" data-tab="comisiones"><span class="ic">%</span>Comisiones</button>
+    </nav>
+    <div class="nav-section">Otras ventas</div>
+    <nav>
+      <button class="navbtn" data-tab="mayor"><span class="ic">▥</span>Venta por mayor</button>
+      <button class="navbtn" data-tab="directas"><span class="ic">●</span>Venta directa</button>
+    </nav>
+    <div class="nav-section">Datos</div>
+    <nav>
+      <button class="navbtn" data-tab="exportar"><span class="ic">⇩</span>Exportar</button>
+    </nav>
+  </div>
+
+  <div class="main" id="main"></div>
+</div>
+</div>
+<div id="sync-badge" style="display:none;">Conectando…</div>
+
+<script>
+/* ============================= FIREBASE ============================= */
+// 1) Ve a https://console.firebase.google.com, crea un proyecto gratis,
+//    activa "Firestore Database" (modo producción) y copia aquí tu configuración
+//    (Configuración del proyecto > Tus apps > SDK setup and configuration).
+const firebaseConfig = {
+  apiKey: "AIzaSyDdMd1RiS312cJNI9B3lMd2IzwKkgJO3rM",
+  authDomain: "glook-control.firebaseapp.com",
+  projectId: "glook-control",
+  storageBucket: "glook-control.firebasestorage.app",
+  messagingSenderId: "128107678785",
+  appId: "1:128107678785:web:86553ab6fa5550226f0ac0"
+};
+
+// 2) Cambia este PIN por el que va a usar el equipo de GLOOK.
+//    Nota: este PIN solo bloquea la pantalla de la app (capa básica, no es
+//    seguridad de servidor). El acceso real a la base de datos lo protegen
+//    las reglas de Firestore (ver firestore.rules), que exigen estar
+//    autenticado de forma anónima — cualquiera que abra la app pasa por eso
+//    automáticamente, así que el PIN es un filtro adicional para tu equipo,
+//    no una contraseña a prueba de todo. Ver README para más detalle.
+// PIN del equipo guardado como hash SHA-256 (no en texto plano) para que no
+// quede visible en el código fuente público del repositorio.
+const PIN_HASH_EQUIPO = "2cf49ac782b7fd2438ad93d94f097578859a6c1359bb434f20a4ad2eb2ff22e0";
+async function sha256(texto){
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(texto));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+const DOC_PATH = { coleccion: "glook_caribe_vivo", doc: "data" };
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+let docRef = null;
+let unsubscribe = null;
+let guardando = false;
+
+function setSyncBadge(texto, clase){
+  const b = document.getElementById("sync-badge");
+  b.style.display = "block";
+  b.textContent = texto;
+  b.className = clase || "";
+}
+
+async function iniciarFirebase(){
+  try{
+    setSyncBadge("Conectando…","");
+    await firebase.auth().signInAnonymously();
+    docRef = db.collection(DOC_PATH.coleccion).doc(DOC_PATH.doc);
+    unsubscribe = docRef.onSnapshot((snap)=>{
+      if(snap.exists){
+        state = Object.assign(state, snap.data());
+      }
+      setSyncBadge("● Sincronizado","ok");
+      render();
+    }, (err)=>{
+      console.error("Firestore onSnapshot error", err);
+      setSyncBadge("⚠ Error de conexión","err");
+    });
+  }catch(e){
+    console.error("Error iniciando Firebase", e);
+    setSyncBadge("⚠ No se pudo conectar a la base de datos","err");
+    alert("No se pudo conectar a Firebase. Revisa la configuración (firebaseConfig) y las reglas de Firestore.");
+  }
+}
+
+/* ============================= ESTADO ============================= */
+let state = {
+  producciones: [],      // {id, coleccion, tematica, color, animal, numero, ref, cantidad, fecha}
+  vendedores: [],         // {id, nombre}
+  ciclosConfig: { inicio: "", duracion: 20, diasCorte: [7,14,20] },
+  entregas: [],           // {id, ciclo, vendedorId, ref, cantidad, fecha}
+  ventasVendedor: [],      // {id, ciclo, vendedorId, ref, cantidad, precio, total, fecha}
+  comisionesPagadas: [],  // {id, vendedorId, ciclo, fecha}
+  ventasMayor: [],        // {id, ref, cantidad, precio, total, comprador, estado, fecha}
+  ventasDirectas: [],     // {id, ref, cantidad, precio, total, cliente, estado, fecha}
+};
+let currentTab = "dashboard";
+let saving = false;
+let filtros = {
+  producciones: { texto:"", ref:"", coleccion:"" },
+  entregas: { texto:"", vendedorId:"", ref:"", ciclo:"" },
+  ventasVendedor: { texto:"", vendedorId:"", ref:"", ciclo:"" },
+  ventasMayor: { texto:"", ref:"" },
+  ventasDirectas: { texto:"", ref:"", estado:"" },
+};
+
+async function loadState(){
+  await iniciarFirebase();
+}
+async function saveState(){
+  if(!docRef) return;
+  guardando = true;
+  try{
+    await docRef.set(state);
+  }catch(e){
+    console.error("Error guardando en Firestore", e);
+    setSyncBadge("⚠ No se pudo guardar","err");
+    alert("No se pudo guardar el cambio. Revisa tu conexión a internet e inténtalo de nuevo.");
+  }
+  guardando = false;
+}
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+/* ============================= UTILIDADES DE NEGOCIO ============================= */
+
+function letras(nombre, n){
+  const palabras = (nombre||"").trim().split(/\s+/).filter(Boolean);
+  if(palabras.length >= 2) return palabras.slice(0,n).map(p=>p[0].toUpperCase()).join("");
+  return (nombre||"").toUpperCase().slice(0,n);
+}
+function calcRef(coleccion, tematica, color, animal, numero){
+  if(!coleccion||!tematica||!color||!animal) return "";
+  const c = coleccion.trim()[0].toUpperCase();
+  const t = tematica.trim()[0].toUpperCase();
+  const co = color.trim()[0].toUpperCase();
+  const an = letras(animal,2);
+  const num = String(numero||1).padStart(2,"0");
+  return `${c}${t}${co}${an}${num}`;
+}
+function sugerirNumero(coleccion,tematica,color,animal){
+  const prefix = calcRef(coleccion,tematica,color,animal,1).slice(0,-2);
+  const existentes = state.producciones.filter(p=>p.ref && p.ref.startsWith(prefix));
+  return existentes.length + 1;
+}
+
+/* ---- Carga masiva de producción por archivo plano ---- */
+let previewCarga = [];
+function sugerirNumeroBatch(coleccion,tematica,color,animal, filasPrevias){
+  const prefix = calcRef(coleccion,tematica,color,animal,1).slice(0,-2);
+  const enEstado = state.producciones.filter(p=>p.ref && p.ref.startsWith(prefix)).length;
+  const enBatch = filasPrevias.filter(f=>f.ref && f.ref.startsWith(prefix)).length;
+  return enEstado + enBatch + 1;
+}
+function parseLineasProduccion(texto){
+  const lineas = texto.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const filas = [], errores = [];
+  lineas.forEach((linea, idx)=>{
+    const partes = linea.split(/[,;\t]/).map(p=>p.trim());
+    const cantidadNum = Number(partes[4]);
+    if(idx===0 && (partes.length<6 || isNaN(cantidadNum))) return; // encabezado
+    if(partes.length<6){ errores.push(`Línea ${idx+1}: formato incompleto (se esperan mínimo 6 campos)`); return; }
+    const [coleccion,tematica,color,animal,cantidadStr,fecha,numeroStr] = partes;
+    const cantidad = Number(cantidadStr);
+    if(!coleccion||!tematica||!color||!animal){ errores.push(`Línea ${idx+1}: faltan campos de texto`); return; }
+    if(isNaN(cantidad) || cantidad<=0){ errores.push(`Línea ${idx+1}: cantidad inválida ("${cantidadStr}")`); return; }
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha)){ errores.push(`Línea ${idx+1}: fecha inválida ("${fecha}"), usa AAAA-MM-DD`); return; }
+    const numero = numeroStr ? Number(numeroStr) : sugerirNumeroBatch(coleccion,tematica,color,animal,filas);
+    const ref = calcRef(coleccion,tematica,color,animal,numero);
+    filas.push({coleccion,tematica,color,animal,cantidad,fecha,numero,ref});
+  });
+  return {filas, errores};
+}
+function renderPreviewCarga(errores){
+  const div = document.getElementById("preview-carga");
+  if(!div) return;
+  errores = errores || [];
+  if(previewCarga.length===0 && errores.length===0){ div.innerHTML=""; return; }
+  div.innerHTML = `
+    ${errores.length ? `<div class="card" style="border-color:var(--red);margin-top:6px;"><h2 style="color:var(--red);">No se pudieron leer ${errores.length} línea(s)</h2>${errores.map(e=>`<p class="hint" style="color:var(--red);margin-bottom:2px;">${e}</p>`).join("")}</div>` : ""}
+    ${previewCarga.length ? `
+    <div class="tablewrap" style="margin-top:10px;"><table>
+      <thead><tr><th>Ref</th><th>Animal</th><th>Colección</th><th>Temática</th><th>Color</th><th>Cantidad</th><th>Fecha</th></tr></thead>
+      <tbody>${previewCarga.map(f=>`<tr><td><span class="refcode">${f.ref}</span></td><td>${f.animal}</td><td>${f.coleccion}</td><td>${f.tematica}</td><td>${f.color}</td><td>${f.cantidad}</td><td>${f.fecha}</td></tr>`).join("")}</tbody>
+    </table></div>
+    <div class="btnrow" style="margin-top:12px;">
+      <button class="btn" id="btn-confirmar-carga" type="button">Confirmar carga (${previewCarga.length})</button>
+      <button class="btn ghost" id="btn-cancelar-carga" type="button">Cancelar</button>
+    </div>` : ""}
+  `;
+  const btnConfirm = document.getElementById("btn-confirmar-carga");
+  if(btnConfirm) btnConfirm.onclick = async ()=>{
+    previewCarga.forEach(f=>{
+      state.producciones.push({id:uid(), coleccion:f.coleccion, tematica:f.tematica, color:f.color, animal:f.animal, numero:f.numero, ref:f.ref, cantidad:f.cantidad, fecha:f.fecha});
+    });
+    previewCarga = [];
+    const fi = document.getElementById("file-produccion"); if(fi) fi.value="";
+    await saveState(); render();
+  };
+  const btnCancel = document.getElementById("btn-cancelar-carga");
+  if(btnCancel) btnCancel.onclick = ()=>{
+    previewCarga = [];
+    const fi = document.getElementById("file-produccion"); if(fi) fi.value="";
+    renderPreviewCarga([]);
+  };
+}
+
+/* ---- Carga masiva de entregas a vendedores ---- */
+let previewEntregas = [];
+function parseLineasEntregas(texto){
+  const lineas = texto.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const filas=[], errores=[];
+  lineas.forEach((linea, idx)=>{
+    const partes = linea.split(/[,;\t]/).map(p=>p.trim());
+    const cicloNum = Number(partes[0]);
+    if(idx===0 && (partes.length<5 || isNaN(cicloNum))) return; // encabezado
+    if(partes.length<5){ errores.push(`Línea ${idx+1}: formato incompleto (se esperan 5 campos)`); return; }
+    const [cicloStr, vendedor, refInput, cantidadStr, fecha] = partes;
+    const ciclo = Number(cicloStr);
+    if(isNaN(ciclo)){ errores.push(`Línea ${idx+1}: ciclo inválido`); return; }
+    if(!vendedor){ errores.push(`Línea ${idx+1}: falta el nombre del vendedor`); return; }
+    const ref = resolveRef(refInput);
+    if(!ref){ errores.push(`Línea ${idx+1}: no encontré la referencia ni el animal "${refInput}" (¿ya registraste esa producción?)`); return; }
+    const cantidad = Number(cantidadStr);
+    if(isNaN(cantidad)||cantidad<=0){ errores.push(`Línea ${idx+1}: cantidad inválida ("${cantidadStr}")`); return; }
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha)){ errores.push(`Línea ${idx+1}: fecha inválida ("${fecha}"), usa AAAA-MM-DD`); return; }
+    filas.push({ciclo, vendedor, ref, cantidad, fecha});
+  });
+  return {filas, errores};
+}
+function renderPreviewEntregas(errores){
+  const div = document.getElementById("preview-entregas");
+  if(!div) return;
+  errores = errores || [];
+  if(previewEntregas.length===0 && errores.length===0){ div.innerHTML=""; return; }
+  div.innerHTML = `
+    ${errores.length ? `<div class="card" style="border-color:var(--red);margin-top:6px;"><h2 style="color:var(--red);">No se pudieron leer ${errores.length} línea(s)</h2>${errores.map(e=>`<p class="hint" style="color:var(--red);margin-bottom:2px;">${e}</p>`).join("")}</div>` : ""}
+    ${previewEntregas.length ? `
+    <div class="tablewrap" style="margin-top:10px;"><table>
+      <thead><tr><th>Ciclo</th><th>Vendedor</th><th>Ref</th><th>Cantidad</th><th>Fecha</th></tr></thead>
+      <tbody>${previewEntregas.map(f=>`<tr><td>Ciclo ${f.ciclo}</td><td>${f.vendedor}</td><td><span class="refcode">${f.ref}</span></td><td>${f.cantidad}</td><td>${f.fecha}</td></tr>`).join("")}</tbody>
+    </table></div>
+    <p class="hint">Los vendedores que no existan todavía se crearán automáticamente al confirmar.</p>
+    <div class="btnrow" style="margin-top:12px;">
+      <button class="btn" id="btn-confirmar-entregas" type="button">Confirmar carga (${previewEntregas.length})</button>
+      <button class="btn ghost" id="btn-cancelar-entregas" type="button">Cancelar</button>
+    </div>` : ""}
+  `;
+  const btnConfirm = document.getElementById("btn-confirmar-entregas");
+  if(btnConfirm) btnConfirm.onclick = async ()=>{
+    previewEntregas.forEach(f=>{
+      const vendedorId = findOrCreateVendedorId(f.vendedor);
+      state.entregas.push({id:uid(), ciclo:f.ciclo, vendedorId, ref:f.ref, cantidad:f.cantidad, fecha:f.fecha});
+    });
+    previewEntregas = [];
+    const fi = document.getElementById("file-entregas"); if(fi) fi.value="";
+    await saveState(); render();
+  };
+  const btnCancel = document.getElementById("btn-cancelar-entregas");
+  if(btnCancel) btnCancel.onclick = ()=>{
+    previewEntregas = [];
+    const fi = document.getElementById("file-entregas"); if(fi) fi.value="";
+    renderPreviewEntregas([]);
+  };
+}
+
+/* ---- Carga masiva de ventas directas ---- */
+let previewDirectas = [];
+function parseLineasDirectas(texto){
+  const lineas = texto.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const filas=[], errores=[];
+  lineas.forEach((linea, idx)=>{
+    const partes = linea.split(/[,;\t]/).map(p=>p.trim());
+    const cantidadNum = Number(partes[1]);
+    if(idx===0 && (partes.length<6 || isNaN(cantidadNum))) return; // encabezado
+    if(partes.length<6){ errores.push(`Línea ${idx+1}: formato incompleto (se esperan 6 campos)`); return; }
+    const [refInput, cantidadStr, precioStr, cliente, estadoIn, fecha] = partes;
+    const ref = resolveRef(refInput);
+    if(!ref){ errores.push(`Línea ${idx+1}: no encontré la referencia ni el animal "${refInput}"`); return; }
+    const cantidad = Number(cantidadStr);
+    if(isNaN(cantidad)||cantidad<=0){ errores.push(`Línea ${idx+1}: cantidad inválida ("${cantidadStr}")`); return; }
+    const precio = Number(precioStr);
+    if(isNaN(precio)||precio<0){ errores.push(`Línea ${idx+1}: precio inválido ("${precioStr}")`); return; }
+    if(!cliente){ errores.push(`Línea ${idx+1}: falta el cliente`); return; }
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha)){ errores.push(`Línea ${idx+1}: fecha inválida ("${fecha}"), usa AAAA-MM-DD`); return; }
+    const estado = /por\s*cobrar/i.test(estadoIn) ? "Por Cobrar" : "Pago";
+    filas.push({ref, cantidad, precio, total:cantidad*precio, cliente, estado, fecha});
+  });
+  return {filas, errores};
+}
+function renderPreviewDirectas(errores){
+  const div = document.getElementById("preview-directas");
+  if(!div) return;
+  errores = errores || [];
+  if(previewDirectas.length===0 && errores.length===0){ div.innerHTML=""; return; }
+  div.innerHTML = `
+    ${errores.length ? `<div class="card" style="border-color:var(--red);margin-top:6px;"><h2 style="color:var(--red);">No se pudieron leer ${errores.length} línea(s)</h2>${errores.map(e=>`<p class="hint" style="color:var(--red);margin-bottom:2px;">${e}</p>`).join("")}</div>` : ""}
+    ${previewDirectas.length ? `
+    <div class="tablewrap" style="margin-top:10px;"><table>
+      <thead><tr><th>Ref</th><th>Cantidad</th><th>Precio</th><th>Total</th><th>Cliente</th><th>Estado</th><th>Fecha</th></tr></thead>
+      <tbody>${previewDirectas.map(f=>`<tr><td><span class="refcode">${f.ref}</span></td><td>${f.cantidad}</td><td>${money(f.precio)}</td><td>${money(f.total)}</td><td>${f.cliente}</td><td>${f.estado}</td><td>${f.fecha}</td></tr>`).join("")}</tbody>
+    </table></div>
+    <div class="btnrow" style="margin-top:12px;">
+      <button class="btn" id="btn-confirmar-directas" type="button">Confirmar carga (${previewDirectas.length})</button>
+      <button class="btn ghost" id="btn-cancelar-directas" type="button">Cancelar</button>
+    </div>` : ""}
+  `;
+  const btnConfirm = document.getElementById("btn-confirmar-directas");
+  if(btnConfirm) btnConfirm.onclick = async ()=>{
+    previewDirectas.forEach(f=>{
+      state.ventasDirectas.push({id:uid(), ref:f.ref, cantidad:f.cantidad, precio:f.precio, total:f.total, cliente:f.cliente, estado:f.estado, fecha:f.fecha});
+    });
+    previewDirectas = [];
+    const fi = document.getElementById("file-directas"); if(fi) fi.value="";
+    await saveState(); render();
+  };
+  const btnCancel = document.getElementById("btn-cancelar-directas");
+  if(btnCancel) btnCancel.onclick = ()=>{
+    previewDirectas = [];
+    const fi = document.getElementById("file-directas"); if(fi) fi.value="";
+    renderPreviewDirectas([]);
+  };
+}
+
+function refsDisponibles(){
+  // refs unicos producidos, con info agregada
+  const map = {};
+  state.producciones.forEach(p=>{
+    if(!map[p.ref]) map[p.ref] = {ref:p.ref, animal:p.animal, coleccion:p.coleccion, tematica:p.tematica, color:p.color, producido:0};
+    map[p.ref].producido += Number(p.cantidad)||0;
+  });
+  return Object.values(map).sort((a,b)=>a.ref.localeCompare(b.ref));
+}
+function resolveRef(input){
+  if(!input) return null;
+  const refs = refsDisponibles();
+  const up = input.trim().toUpperCase();
+  let found = refs.find(r=>r.ref.toUpperCase()===up);
+  if(found) return found.ref;
+  found = refs.find(r=>r.animal.trim().toUpperCase()===input.trim().toUpperCase());
+  if(found) return found.ref;
+  return null;
+}
+function findOrCreateVendedorId(nombre){
+  let v = state.vendedores.find(x=>x.nombre.trim().toLowerCase()===nombre.trim().toLowerCase());
+  if(!v){ v = {id:uid(), nombre:nombre.trim()}; state.vendedores.push(v); }
+  return v.id;
+}
+
+function stockPorRef(){
+  const refs = refsDisponibles();
+  return refs.map(r=>{
+    const entregado = state.entregas.filter(e=>e.ref===r.ref).reduce((s,e)=>s+Number(e.cantidad||0),0);
+    const vendidoVend = state.ventasVendedor.filter(v=>v.ref===r.ref).reduce((s,v)=>s+Number(v.cantidad||0),0);
+    const vendidoMayor = state.ventasMayor.filter(v=>v.ref===r.ref).reduce((s,v)=>s+Number(v.cantidad||0),0);
+    const vendidoDirecta = state.ventasDirectas.filter(v=>v.ref===r.ref).reduce((s,v)=>s+Number(v.cantidad||0),0);
+    const salidas = entregado + vendidoMayor + vendidoDirecta;
+    const stockBodega = r.producido - salidas;
+    const enManosVendedores = entregado - vendidoVend;
+    const totalVendido = vendidoVend + vendidoMayor + vendidoDirecta;
+    return {...r, entregado, vendidoVend, vendidoMayor, vendidoDirecta, totalVendido, stockBodega, enManosVendedores};
+  });
+}
+
+function fechaSuma(fechaISO, dias){
+  const d = new Date(fechaISO+"T00:00:00");
+  d.setDate(d.getDate()+dias);
+  return d;
+}
+function fmtFecha(d){
+  const dias=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+  return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")} ${dias[d.getDay()]}`;
+}
+function listaCiclos(n){
+  const cfg = state.ciclosConfig;
+  if(!cfg.inicio) return [];
+  const out = [];
+  for(let i=0;i<n;i++){
+    const inicio = fechaSuma(cfg.inicio, i*cfg.duracion);
+    const cortes = cfg.diasCorte.map(dd=>fechaSuma(cfg.inicio, i*cfg.duracion + (dd-1)));
+    const pago = fechaSuma(cfg.inicio, i*cfg.duracion + cfg.duracion);
+    out.push({numero:i+1, inicio, cortes, pago});
+  }
+  return out;
+}
+function cicloActualNumero(){
+  const cfg = state.ciclosConfig;
+  if(!cfg.inicio) return 1;
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const inicio1 = new Date(cfg.inicio+"T00:00:00");
+  const diff = Math.floor((hoy-inicio1)/(1000*60*60*24));
+  if(diff<0) return 1;
+  return Math.floor(diff/cfg.duracion)+1;
+}
+
+function tierComision(total){
+  if(total<=50000) return 0.07;
+  if(total<=150000) return 0.10;
+  if(total<=300000) return 0.15;
+  if(total<=500000) return 0.20;
+  return 0.25;
+}
+function precioMayorSugerido(cantidad){
+  cantidad = Number(cantidad)||0;
+  if(cantidad>=50) return 7000;
+  if(cantidad>=20) return 7500;
+  if(cantidad>=10) return 8000;
+  return 12000;
+}
+
+function comisionesResumen(){
+  const grupos = {};
+  state.ventasVendedor.forEach(v=>{
+    const key = v.vendedorId+"|"+v.ciclo;
+    if(!grupos[key]) grupos[key] = {vendedorId:v.vendedorId, ciclo:v.ciclo, total:0, unidades:0};
+    grupos[key].total += Number(v.total)||0;
+    grupos[key].unidades += Number(v.cantidad)||0;
+  });
+  return Object.values(grupos).map(g=>{
+    const tier = tierComision(g.total);
+    const comision = g.total*tier;
+    const pagada = state.comisionesPagadas.some(c=>c.vendedorId===g.vendedorId && c.ciclo===g.ciclo);
+    const vendedor = state.vendedores.find(v=>v.id===g.vendedorId);
+    return {...g, tier, comision, pagada, vendedorNombre: vendedor?vendedor.nombre:"—"};
+  }).sort((a,b)=> b.ciclo-a.ciclo || a.vendedorNombre.localeCompare(b.vendedorNombre));
+}
+
+function money(n){ return "$"+Math.round(Number(n)||0).toLocaleString("es-CO"); }
+
+/* ============================= RENDER ============================= */
+function render(){
+  const activeEl = document.activeElement;
+  const activeId = activeEl && activeEl.id ? activeEl.id : null;
+  const selStart = activeEl && typeof activeEl.selectionStart === "number" ? activeEl.selectionStart : null;
+
+  document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("active", b.dataset.tab===currentTab));
+  const main = document.getElementById("main");
+  const renderers = {
+    dashboard: renderDashboard,
+    produccion: renderProduccion,
+    ciclos: renderCiclos,
+    vendedores: renderVendedores,
+    entregas: renderEntregas,
+    ventasvendedor: renderVentasVendedor,
+    comisiones: renderComisiones,
+    mayor: renderMayor,
+    directas: renderDirectas,
+    exportar: renderExportar,
+  };
+  main.innerHTML = renderers[currentTab] ? renderers[currentTab]() : "";
+  attachHandlers();
+
+  if(activeId){
+    const el = document.getElementById(activeId);
+    if(el){
+      el.focus();
+      if(selStart!=null && el.setSelectionRange){ try{ el.setSelectionRange(selStart, selStart); }catch(e){} }
+    }
+  }
+}
+
+function head(title, sub){
+  return `<div class="pagehead"><div><h1>${title}</h1><p>${sub||""}</p></div></div>`;
+}
+
+/* ---------- DASHBOARD ---------- */
+function renderDashboard(){
+  const stock = stockPorRef();
+  const totalProducido = stock.reduce((s,r)=>s+r.producido,0);
+  const totalStock = stock.reduce((s,r)=>s+r.stockBodega,0);
+  const totalVendido = stock.reduce((s,r)=>s+r.totalVendido,0);
+  const alertas = stock.filter(r=>r.stockBodega<0);
+  const valorMayor = state.ventasMayor.reduce((s,v)=>s+Number(v.total||0),0);
+  const valorDirecta = state.ventasDirectas.filter(v=>v.estado==="Pago").reduce((s,v)=>s+Number(v.total||0),0);
+  const valorDirectaPorCobrar = state.ventasDirectas.filter(v=>v.estado==="Por Cobrar").reduce((s,v)=>s+Number(v.total||0),0);
+  const valorVendedores = state.ventasVendedor.reduce((s,v)=>s+Number(v.total||0),0);
+  const comisionTotal = comisionesResumen().reduce((s,c)=>s+c.comision,0);
+
+  return `
+  ${head("Dashboard", "Resumen general de producción, stock y ventas de todas las referencias.")}
+  <div class="grid grid-4">
+    <div class="kpi"><div class="lbl">Unidades producidas</div><div class="val">${totalProducido}</div></div>
+    <div class="kpi"><div class="lbl">En stock (bodega)</div><div class="val">${totalStock}</div></div>
+    <div class="kpi"><div class="lbl">Unidades vendidas</div><div class="val">${totalVendido}</div></div>
+    <div class="kpi"><div class="lbl">Valor cobrado (Pago)</div><div class="val" style="font-size:19px">${money(valorMayor+valorDirecta+valorVendedores)}</div></div>
+  </div>
+  <div class="grid grid-3" style="margin-top:14px;">
+    <div class="kpi"><div class="lbl">Ventas por mayor</div><div class="val" style="font-size:18px">${money(valorMayor)}</div></div>
+    <div class="kpi"><div class="lbl">Ventas directas (Pago)</div><div class="val" style="font-size:18px">${money(valorDirecta)}</div></div>
+    <div class="kpi"><div class="lbl">Comisiones calculadas</div><div class="val" style="font-size:18px">${money(comisionTotal)}</div></div>
+  </div>
+  ${valorDirectaPorCobrar>0 ? `<div class="kpi" style="margin-top:14px;max-width:280px;"><div class="lbl">Por cobrar (ventas directas)</div><div class="val" style="font-size:18px;color:var(--amber);">${money(valorDirectaPorCobrar)}</div></div>` : ""}
+
+  ${alertas.length ? `
+  <div class="card" style="border-color:var(--red);">
+    <h2 style="color:var(--red);">⚠ Referencias con stock negativo (${alertas.length})</h2>
+    <p class="hint">Se registraron más salidas que unidades producidas. Revisa las cantidades ingresadas.</p>
+    <div class="badgebar">${alertas.map(a=>`<span class="pill" style="background:#FBE6E4;color:var(--red);">${a.ref}: ${a.stockBodega}</span>`).join("")}</div>
+  </div>` : ""}
+
+  <div class="card">
+    <h2>Stock por referencia <span class="cnt">(${stock.length} referencias)</span></h2>
+    ${stock.length===0 ? `<div class="empty">Aún no hay producciones registradas. Ve a la pestaña "Producción" para agregar la primera.</div>` : `
+    <div class="tablewrap"><table>
+      <thead><tr><th>Ref</th><th>Animal</th><th>Colección</th><th>Producido</th><th>Entregado a vend.</th><th>Vendido vend.</th><th>Vendido mayor</th><th>Vendido directa</th><th>En bodega</th><th>En poder vend.</th></tr></thead>
+      <tbody>
+      ${stock.map(r=>`<tr>
+        <td><span class="refcode">${r.ref}</span></td>
+        <td>${r.animal}</td>
+        <td>${r.coleccion} / ${r.tematica} / ${r.color}</td>
+        <td>${r.producido}</td>
+        <td>${r.entregado}</td>
+        <td>${r.vendidoVend}</td>
+        <td>${r.vendidoMayor}</td>
+        <td>${r.vendidoDirecta}</td>
+        <td><span class="tag ${r.stockBodega<0?'bad':r.stockBodega<=2?'warn':'ok'}">${r.stockBodega}</span></td>
+        <td>${r.enManosVendedores}</td>
+      </tr>`).join("")}
+      </tbody>
+    </table></div>`}
+  </div>`;
+}
+
+/* ---------- PRODUCCION ---------- */
+function renderProduccion(){
+  const f = filtros.producciones;
+  const todas = [...state.producciones].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  const rows = todas.filter(p=>{
+    if(f.ref && p.ref!==f.ref) return false;
+    if(f.coleccion && p.coleccion!==f.coleccion) return false;
+    if(f.texto){
+      const t=f.texto.toLowerCase();
+      const hay=[p.ref,p.animal,p.coleccion,p.tematica,p.color,p.fecha].join(" ").toLowerCase();
+      if(!hay.includes(t)) return false;
+    }
+    return true;
+  });
+  const totalCantidad = rows.reduce((s,p)=>s+Number(p.cantidad||0),0);
+  const refsUnicas = [...new Set(todas.map(p=>p.ref))];
+  const coleccionesUnicas = [...new Set(todas.map(p=>p.coleccion))];
+  return `
+  ${head("Producción", "Registra cada lote producido. La referencia se genera automáticamente.")}
+  <div class="card">
+    <h2>Nueva producción</h2>
+    <form class="inline grid grid-3" id="form-produccion">
+      <div class="field"><label>Colección</label><input name="coleccion" list="dl-coleccion" required placeholder="Caribe Vivo"></div>
+      <div class="field"><label>Temática</label><input name="tematica" list="dl-tematica" required placeholder="Fauna"></div>
+      <div class="field"><label>Color</label><input name="color" list="dl-color" required placeholder="Marfil"></div>
+      <div class="field"><label>Animal</label><input name="animal" list="dl-animal" required placeholder="Guacamaya"></div>
+      <div class="field"><label>Cantidad</label><input name="cantidad" type="number" min="1" required></div>
+      <div class="field"><label>Fecha</label><input name="fecha" type="date" required value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>N° de producción (lote)</label><input name="numero" type="number" min="1" value="1"></div>
+      <div class="field"><label>Referencia generada</label><div class="refpreview" id="ref-preview">—</div></div>
+      <datalist id="dl-coleccion">${[...new Set(state.producciones.map(p=>p.coleccion))].map(v=>`<option value="${v}">`).join("")}</datalist>
+      <datalist id="dl-tematica">${[...new Set(state.producciones.map(p=>p.tematica))].map(v=>`<option value="${v}">`).join("")}</datalist>
+      <datalist id="dl-color">${[...new Set(state.producciones.map(p=>p.color))].map(v=>`<option value="${v}">`).join("")}</datalist>
+      <datalist id="dl-animal">${[...new Set(state.producciones.map(p=>p.animal))].map(v=>`<option value="${v}">`).join("")}</datalist>
+      <div class="field" style="align-self:end;"><button class="btn" type="submit">Agregar producción</button></div>
+    </form>
+    <p class="hint">La referencia = 1ª letra colección + 1ª letra temática + 1ª letra color + 2 letras del animal + N° de lote. Puedes editar el N° si repites color/animal en una nueva producción.</p>
+  </div>
+  <div class="card">
+    <h2>Carga masiva desde archivo</h2>
+    <p class="hint">Sube un .txt o .csv con una producción por línea:<br>
+    <code>coleccion,tematica,color,animal,cantidad,fecha(AAAA-MM-DD),numero_lote</code><br>
+    El número de lote es opcional (se calcula solo si lo omites). La primera línea puede ser un encabezado, se detecta y se ignora.</p>
+    <div class="btnrow" style="margin-bottom:4px;">
+      <input type="file" id="file-produccion" accept=".txt,.csv">
+      <button class="btn ghost sm" id="btn-plantilla" type="button">Descargar plantilla de ejemplo</button>
+    </div>
+    <div id="preview-carga"></div>
+  </div>
+  <div class="card">
+    <h2>Historial de producción <span class="cnt">(${rows.length} de ${todas.length})</span></h2>
+    <div class="grid grid-3" style="margin-bottom:12px;">
+      <div class="field"><label>Buscar</label><input id="filtro-texto-produccion" placeholder="animal, ref, color..." value="${f.texto}"></div>
+      <div class="field"><label>Colección</label><select id="filtro-coleccion-produccion"><option value="">Todas</option>${coleccionesUnicas.map(c=>`<option value="${c}" ${f.coleccion===c?"selected":""}>${c}</option>`).join("")}</select></div>
+      <div class="field"><label>Referencia</label><select id="filtro-ref-produccion"><option value="">Todas</option>${refsUnicas.map(r=>`<option value="${r}" ${f.ref===r?"selected":""}>${r}</option>`).join("")}</select></div>
+    </div>
+    ${rows.length===0 ? `<div class="empty">No hay producciones que coincidan con el filtro.</div>` : `
+    <div class="tablewrap"><table>
+      <thead><tr><th>Ref</th><th>Animal</th><th>Colección</th><th>Temática</th><th>Color</th><th>Cantidad</th><th>Fecha</th><th></th></tr></thead>
+      <tbody>${rows.map(p=>`<tr>
+        <td><span class="refcode">${p.ref}</span></td>
+        <td>${p.animal}</td><td>${p.coleccion}</td><td>${p.tematica}</td><td>${p.color}</td>
+        <td>${p.cantidad}</td><td>${p.fecha}</td>
+        <td><button class="btn danger" data-del="producciones" data-id="${p.id}">Eliminar</button></td>
+      </tr>`).join("")}</tbody>
+      <tfoot><tr style="font-weight:700;background:#F0EFFC;"><td colspan="5">Total (${rows.length} filas)</td><td>${totalCantidad}</td><td colspan="2"></td></tr></tfoot>
+    </table></div>`}
+  </div>`;
+}
+
+/* ---------- CICLOS ---------- */
+function renderCiclos(){
+  const cfg = state.ciclosConfig;
+  const ciclos = cfg.inicio ? listaCiclos(10) : [];
+  const actual = cicloActualNumero();
+  return `
+  ${head("Ciclos de venta", "Define el inicio del ciclo 1 y la duración; las fechas de corte se calculan solas.")}
+  <div class="card">
+    <h2>Configuración</h2>
+    <form class="inline grid grid-3" id="form-ciclos">
+      <div class="field"><label>Inicio del Ciclo 1</label><input name="inicio" type="date" value="${cfg.inicio||""}" required></div>
+      <div class="field"><label>Duración del ciclo (días)</label><input name="duracion" type="number" min="1" value="${cfg.duracion}" required></div>
+      <div class="field"><label>Días de corte (separados por coma)</label><input name="diasCorte" value="${cfg.diasCorte.join(",")}" required></div>
+      <div class="field" style="align-self:end;"><button class="btn" type="submit">Guardar</button></div>
+    </form>
+    <p class="hint">Corte = el vendedor reporta unidades vendidas por Ref y entrega el dinero bruto correspondiente. El pago de comisión ocurre al día siguiente del último corte, cuando también inicia el ciclo siguiente.</p>
+  </div>
+  <div class="card">
+    <h2>Ciclos calculados <span class="cnt">${cfg.inicio? `— ciclo actual: Ciclo ${actual}`:""}</span></h2>
+    ${!cfg.inicio ? `<div class="empty">Configura la fecha de inicio para generar los ciclos.</div>` : `
+    <div class="tablewrap"><table>
+      <thead><tr><th>Ciclo</th><th>Inicio</th>${cfg.diasCorte.map((d,i)=>`<th>Corte ${i+1} (día ${d})</th>`).join("")}<th>Pago comisión / inicio siguiente</th></tr></thead>
+      <tbody>${ciclos.map(c=>`<tr ${c.numero===actual?'style="background:#F0EFFC;"':''}>
+        <td><b>${c.numero===actual?"▶ ":""}Ciclo ${c.numero}</b></td>
+        <td>${fmtFecha(c.inicio)}</td>
+        ${c.cortes.map(f=>`<td>${fmtFecha(f)}</td>`).join("")}
+        <td><b>${fmtFecha(c.pago)}</b></td>
+      </tr>`).join("")}</tbody>
+    </table></div>`}
+  </div>`;
+}
+
+/* ---------- VENDEDORES ---------- */
+function renderVendedores(){
+  const rows = state.vendedores;
+  return `
+  ${head("Vendedores", "Personas asociadas que venden en consignación por ciclo.")}
+  <div class="card">
+    <h2>Nuevo vendedor</h2>
+    <form class="inline grid grid-3" id="form-vendedor">
+      <div class="field"><label>Nombre</label><input name="nombre" required></div>
+      <div class="field" style="align-self:end;"><button class="btn" type="submit">Agregar</button></div>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Vendedores registrados <span class="cnt">(${rows.length})</span></h2>
+    ${rows.length===0 ? `<div class="empty">No hay vendedores registrados.</div>` : `
+    <div class="tablewrap"><table><thead><tr><th>Nombre</th><th></th></tr></thead>
+    <tbody>${rows.map(v=>`<tr><td>${v.nombre}</td><td><button class="btn danger" data-del="vendedores" data-id="${v.id}">Eliminar</button></td></tr>`).join("")}</tbody>
+    </table></div>`}
+  </div>`;
+}
+
+/* ---------- ENTREGAS DE PRODUCTO ---------- */
+function renderEntregas(){
+  const f = filtros.entregas;
+  const todas = [...state.entregas].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  const rows = todas.filter(e=>{
+    if(f.vendedorId && e.vendedorId!==f.vendedorId) return false;
+    if(f.ref && e.ref!==f.ref) return false;
+    if(f.ciclo && String(e.ciclo)!==String(f.ciclo)) return false;
+    if(f.texto){
+      const t=f.texto.toLowerCase();
+      const hay=[nombreVendedor(e.vendedorId),e.ref,e.ciclo,e.fecha].join(" ").toLowerCase();
+      if(!hay.includes(t)) return false;
+    }
+    return true;
+  });
+  const totalCantidad = rows.reduce((s,e)=>s+Number(e.cantidad||0),0);
+  const refs = refsDisponibles();
+  const ciclosUnicos = [...new Set(todas.map(e=>e.ciclo))].sort((a,b)=>a-b);
+  return `
+  ${head("Entrega de producto a vendedores", "Consignación: el producto sale del stock de bodega apenas se entrega, aunque todavía no se haya vendido.")}
+  <div class="card">
+    <h2>Nueva entrega</h2>
+    <form class="inline grid grid-4" id="form-entrega">
+      <div class="field"><label>Ciclo</label><input name="ciclo" type="number" min="1" value="${cicloActualNumero()}" required></div>
+      <div class="field"><label>Vendedor</label><select name="vendedorId" required>${vendedorOptions()}</select></div>
+      <div class="field"><label>Referencia</label><select name="ref" required>${refOptions(refs)}</select></div>
+      <div class="field"><label>Cantidad</label><input name="cantidad" type="number" min="1" required></div>
+      <div class="field"><label>Fecha</label><input name="fecha" type="date" value="${new Date().toISOString().slice(0,10)}" required></div>
+      <div class="field" style="align-self:end;"><button class="btn" type="submit">Registrar entrega</button></div>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Carga masiva desde archivo</h2>
+    <p class="hint">Sube un .txt o .csv con una entrega por línea:<br>
+    <code>ciclo,vendedor,ref_o_animal,cantidad,fecha(AAAA-MM-DD)</code><br>
+    Puedes usar el código de referencia o el nombre del animal (ej. "Guacamaya"). Si el vendedor no existe todavía, se crea solo.</p>
+    <div class="btnrow" style="margin-bottom:4px;">
+      <input type="file" id="file-entregas" accept=".txt,.csv">
+      <button class="btn ghost sm" id="btn-plantilla-entregas" type="button">Descargar plantilla de ejemplo</button>
+    </div>
+    <div id="preview-entregas"></div>
+  </div>
+  <div class="card">
+    <h2>Historial de entregas <span class="cnt">(${rows.length} de ${todas.length})</span></h2>
+    <div class="grid grid-4" style="margin-bottom:12px;">
+      <div class="field"><label>Buscar</label><input id="filtro-texto-entregas" placeholder="vendedor, ref..." value="${f.texto}"></div>
+      <div class="field"><label>Vendedor</label><select id="filtro-vendedor-entregas"><option value="">Todos</option>${state.vendedores.map(v=>`<option value="${v.id}" ${f.vendedorId===v.id?"selected":""}>${v.nombre}</option>`).join("")}</select></div>
+      <div class="field"><label>Referencia</label><select id="filtro-ref-entregas"><option value="">Todas</option>${refs.map(r=>`<option value="${r.ref}" ${f.ref===r.ref?"selected":""}>${r.ref}</option>`).join("")}</select></div>
+      <div class="field"><label>Ciclo</label><select id="filtro-ciclo-entregas"><option value="">Todos</option>${ciclosUnicos.map(c=>`<option value="${c}" ${String(f.ciclo)===String(c)?"selected":""}>Ciclo ${c}</option>`).join("")}</select></div>
+    </div>
+    ${rows.length===0 ? `<div class="empty">No hay entregas que coincidan con el filtro.</div>` : `
+    <div class="tablewrap"><table>
+      <thead><tr><th>Ciclo</th><th>Vendedor</th><th>Ref</th><th>Cantidad</th><th>Fecha</th><th></th></tr></thead>
+      <tbody>${rows.map(e=>`<tr>
+        <td>Ciclo ${e.ciclo}</td><td>${nombreVendedor(e.vendedorId)}</td>
+        <td><span class="refcode">${e.ref}</span></td><td>${e.cantidad}</td><td>${e.fecha}</td>
+        <td><button class="btn danger" data-del="entregas" data-id="${e.id}">Eliminar</button></td>
+      </tr>`).join("")}</tbody>
+      <tfoot><tr style="font-weight:700;background:#F0EFFC;"><td colspan="3">Total (${rows.length} filas)</td><td>${totalCantidad}</td><td colspan="2"></td></tr></tfoot>
+    </table></div>`}
+  </div>`;
+}
+
+/* ---------- VENTAS DE VENDEDORES (cortes) ---------- */
+function renderVentasVendedor(){
+  const f = filtros.ventasVendedor;
+  const todas = [...state.ventasVendedor].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  const rows = todas.filter(v=>{
+    if(f.vendedorId && v.vendedorId!==f.vendedorId) return false;
+    if(f.ref && v.ref!==f.ref) return false;
+    if(f.ciclo && String(v.ciclo)!==String(f.ciclo)) return false;
+    if(f.texto){
+      const t=f.texto.toLowerCase();
+      const hay=[nombreVendedor(v.vendedorId),v.ref,v.ciclo,v.fecha].join(" ").toLowerCase();
+      if(!hay.includes(t)) return false;
+    }
+    return true;
+  });
+  const totalCantidad = rows.reduce((s,v)=>s+Number(v.cantidad||0),0);
+  const totalMonto = rows.reduce((s,v)=>s+Number(v.total||0),0);
+  const refs = refsDisponibles();
+  const ciclosUnicos = [...new Set(todas.map(v=>v.ciclo))].sort((a,b)=>a-b);
+  return `
+  ${head("Ventas reportadas por vendedores", "En cada corte (día 7 / 14 / 20) el vendedor reporta cuántas unidades vendió por referencia y entrega el dinero bruto.")}
+  <div class="card">
+    <h2>Nuevo reporte de venta</h2>
+    <form class="inline grid grid-4" id="form-ventavendedor">
+      <div class="field"><label>Ciclo</label><input name="ciclo" type="number" min="1" value="${cicloActualNumero()}" required></div>
+      <div class="field"><label>Vendedor</label><select name="vendedorId" required>${vendedorOptions()}</select></div>
+      <div class="field"><label>Referencia</label><select name="ref" required>${refOptions(refs)}</select></div>
+      <div class="field"><label>Cantidad vendida</label><input name="cantidad" type="number" min="1" required></div>
+      <div class="field"><label>Precio unitario</label><input name="precio" type="number" min="0" value="12000" required></div>
+      <div class="field"><label>Fecha de corte</label><input name="fecha" type="date" value="${new Date().toISOString().slice(0,10)}" required></div>
+      <div class="field" style="align-self:end;"><button class="btn" type="submit">Registrar</button></div>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Historial <span class="cnt">(${rows.length} de ${todas.length})</span></h2>
+    <div class="grid grid-4" style="margin-bottom:12px;">
+      <div class="field"><label>Buscar</label><input id="filtro-texto-ventasvendedor" placeholder="vendedor, ref..." value="${f.texto}"></div>
+      <div class="field"><label>Vendedor</label><select id="filtro-vendedor-ventasvendedor"><option value="">Todos</option>${state.vendedores.map(v=>`<option value="${v.id}" ${f.vendedorId===v.id?"selected":""}>${v.nombre}</option>`).join("")}</select></div>
+      <div class="field"><label>Referencia</label><select id="filtro-ref-ventasvendedor"><option value="">Todas</option>${refs.map(r=>`<option value="${r.ref}" ${f.ref===r.ref?"selected":""}>${r.ref}</option>`).join("")}</select></div>
+      <div class="field"><label>Ciclo</label><select id="filtro-ciclo-ventasvendedor"><option value="">Todos</option>${ciclosUnicos.map(c=>`<option value="${c}" ${String(f.ciclo)===String(c)?"selected":""}>Ciclo ${c}</option>`).join("")}</select></div>
+    </div>
+    ${rows.length===0 ? `<div class="empty">No hay ventas que coincidan con el filtro.</div>` : `
+    <div class="tablewrap"><table>
+      <thead><tr><th>Ciclo</th><th>Vendedor</th><th>Ref</th><th>Cantidad</th><th>Precio unit.</th><th>Total</th><th>Fecha</th><th></th></tr></thead>
+      <tbody>${rows.map(v=>`<tr>
+        <td>Ciclo ${v.ciclo}</td><td>${nombreVendedor(v.vendedorId)}</td>
+        <td><span class="refcode">${v.ref}</span></td><td>${v.cantidad}</td><td>${money(v.precio)}</td><td>${money(v.total)}</td><td>${v.fecha}</td>
+        <td><button class="btn danger" data-del="ventasVendedor" data-id="${v.id}">Eliminar</button></td>
+      </tr>`).join("")}</tbody>
+      <tfoot><tr style="font-weight:700;background:#F0EFFC;"><td colspan="3">Total (${rows.length} filas)</td><td>${totalCantidad}</td><td></td><td>${money(totalMonto)}</td><td colspan="2"></td></tr></tfoot>
+    </table></div>`}
+  </div>`;
+}
+
+/* ---------- COMISIONES ---------- */
+function renderComisiones(){
+  const rows = comisionesResumen();
+  return `
+  ${head("Comisiones", "Se calcula por vendedor y por ciclo (no se acumula entre ciclos), según el total vendido y la escala del plan de comisiones.")}
+  <div class="card">
+    <h2>Escala de comisión</h2>
+    <div class="badgebar">
+      <span class="pill">Hasta $50.000 → 7%</span>
+      <span class="pill">$50.001–150.000 → 10%</span>
+      <span class="pill">$150.001–300.000 → 15%</span>
+      <span class="pill">$300.001–500.000 → 20%</span>
+      <span class="pill" style="background:#FDF0DD;color:#B4791F;">Más de $500.000 → 25%</span>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Resumen por vendedor y ciclo <span class="cnt">(${rows.length})</span></h2>
+    ${rows.length===0 ? `<div class="empty">Aún no hay ventas de vendedores registradas para calcular comisión.</div>` : `
+    <div class="tablewrap"><table>
+      <thead><tr><th>Ciclo</th><th>Vendedor</th><th>Unidades</th><th>Total vendido</th><th>Tramo</th><th>Comisión</th><th>Estado</th><th></th></tr></thead>
+      <tbody>${rows.map(r=>`<tr>
+        <td>Ciclo ${r.ciclo}</td><td>${r.vendedorNombre}</td><td>${r.unidades}</td><td>${money(r.total)}</td>
+        <td>${(r.tier*100).toFixed(0)}%</td><td><b>${money(r.comision)}</b></td>
+        <td>${r.pagada ? `<span class="tag ok">Pagada</span>` : `<span class="tag warn">Pendiente</span>`}</td>
+        <td>${r.pagada ? "" : `<button class="btn secondary sm" data-pagar="${r.vendedorId}|${r.ciclo}">Marcar pagada</button>`}</td>
+      </tr>`).join("")}</tbody>
+    </table></div>`}
+  </div>`;
+}
+
+/* ---------- VENTA POR MAYOR ---------- */
+function renderMayor(){
+  const f = filtros.ventasMayor;
+  const todas = [...state.ventasMayor].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  const rows = todas.filter(v=>{
+    if(f.ref && v.ref!==f.ref) return false;
+    if(f.texto){
+      const t=f.texto.toLowerCase();
+      const hay=[v.ref,v.comprador,v.fecha].join(" ").toLowerCase();
+      if(!hay.includes(t)) return false;
+    }
+    return true;
+  });
+  const totalCantidad = rows.reduce((s,v)=>s+Number(v.cantidad||0),0);
+  const totalMonto = rows.reduce((s,v)=>s+Number(v.total||0),0);
+  const refs = refsDisponibles();
+  return `
+  ${head("Venta por mayor", "Sin crédito: se paga el 100% al momento de llevarse la mercancía.")}
+  <div class="card">
+    <h2>Nueva venta por mayor</h2>
+    <form class="inline grid grid-4" id="form-mayor">
+      <div class="field"><label>Referencia</label><select name="ref" required>${refOptions(refs)}</select></div>
+      <div class="field"><label>Cantidad</label><input name="cantidad" type="number" min="1" required></div>
+      <div class="field"><label>Precio unitario</label><input name="precio" type="number" min="0" value="8000" required></div>
+      <div class="field"><label>Comprador</label><input name="comprador" required></div>
+      <div class="field"><label>Fecha</label><input name="fecha" type="date" value="${new Date().toISOString().slice(0,10)}" required></div>
+      <div class="field" style="align-self:end;"><button class="btn" type="submit">Registrar venta</button></div>
+    </form>
+    <p class="hint">Sugerido: 10–19 u. → $8.000 · 20–49 u. → $7.500 · 50+ u. → $7.000 · menos de 10 → $12.000. El precio se ajusta solo según la cantidad, pero puedes editarlo.</p>
+  </div>
+  <div class="card">
+    <h2>Historial <span class="cnt">(${rows.length} de ${todas.length})</span></h2>
+    <div class="grid grid-2" style="margin-bottom:12px;">
+      <div class="field"><label>Buscar</label><input id="filtro-texto-mayor" placeholder="comprador, ref..." value="${f.texto}"></div>
+      <div class="field"><label>Referencia</label><select id="filtro-ref-mayor"><option value="">Todas</option>${refs.map(r=>`<option value="${r.ref}" ${f.ref===r.ref?"selected":""}>${r.ref}</option>`).join("")}</select></div>
+    </div>
+    ${rows.length===0 ? `<div class="empty">No hay ventas que coincidan con el filtro.</div>` : `
+    <div class="tablewrap"><table>
+      <thead><tr><th>Ref</th><th>Cantidad</th><th>Precio unit.</th><th>Total</th><th>Comprador</th><th>Estado</th><th>Fecha</th><th></th></tr></thead>
+      <tbody>${rows.map(v=>`<tr>
+        <td><span class="refcode">${v.ref}</span></td><td>${v.cantidad}</td><td>${money(v.precio)}</td><td>${money(v.total)}</td>
+        <td>${v.comprador}</td><td><span class="tag ok">Pagado</span></td><td>${v.fecha}</td>
+        <td><button class="btn danger" data-del="ventasMayor" data-id="${v.id}">Eliminar</button></td>
+      </tr>`).join("")}</tbody>
+      <tfoot><tr style="font-weight:700;background:#F0EFFC;"><td>Total (${rows.length} filas)</td><td>${totalCantidad}</td><td></td><td>${money(totalMonto)}</td><td colspan="4"></td></tr></tfoot>
+    </table></div>`}
+  </div>`;
+}
+
+/* ---------- VENTA DIRECTA ---------- */
+function renderDirectas(){
+  const f = filtros.ventasDirectas;
+  const todas = [...state.ventasDirectas].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  const rows = todas.filter(v=>{
+    if(f.ref && v.ref!==f.ref) return false;
+    if(f.estado && v.estado!==f.estado) return false;
+    if(f.texto){
+      const t=f.texto.toLowerCase();
+      const hay=[v.ref,v.cliente,v.fecha].join(" ").toLowerCase();
+      if(!hay.includes(t)) return false;
+    }
+    return true;
+  });
+  const totalCantidad = rows.reduce((s,v)=>s+Number(v.cantidad||0),0);
+  const totalMonto = rows.reduce((s,v)=>s+Number(v.total||0),0);
+  const refs = refsDisponibles();
+  return `
+  ${head("Venta directa", "Ventas propias: redes sociales, página web, voz a voz.")}
+  <div class="card">
+    <h2>Nueva venta directa</h2>
+    <form class="inline grid grid-4" id="form-directa">
+      <div class="field"><label>Referencia</label><select name="ref" required>${refOptions(refs)}</select></div>
+      <div class="field"><label>Cantidad</label><input name="cantidad" type="number" min="1" required></div>
+      <div class="field"><label>Precio unitario</label><input name="precio" type="number" min="0" value="12000" required></div>
+      <div class="field"><label>Cliente</label><input name="cliente" required></div>
+      <div class="field"><label>Estado</label><select name="estado"><option value="Pago">Pago</option><option value="Por Cobrar">Por Cobrar</option></select></div>
+      <div class="field"><label>Fecha</label><input name="fecha" type="date" value="${new Date().toISOString().slice(0,10)}" required></div>
+      <div class="field" style="align-self:end;"><button class="btn" type="submit">Registrar venta</button></div>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Carga masiva desde archivo</h2>
+    <p class="hint">Sube un .txt o .csv con una venta por línea:<br>
+    <code>ref_o_animal,cantidad,precio,cliente,estado(Pago/Por Cobrar),fecha(AAAA-MM-DD)</code></p>
+    <div class="btnrow" style="margin-bottom:4px;">
+      <input type="file" id="file-directas" accept=".txt,.csv">
+      <button class="btn ghost sm" id="btn-plantilla-directas" type="button">Descargar plantilla de ejemplo</button>
+    </div>
+    <div id="preview-directas"></div>
+  </div>
+  <div class="card">
+    <h2>Historial <span class="cnt">(${rows.length} de ${todas.length})</span></h2>
+    <div class="grid grid-3" style="margin-bottom:12px;">
+      <div class="field"><label>Buscar</label><input id="filtro-texto-directas" placeholder="cliente, ref..." value="${f.texto}"></div>
+      <div class="field"><label>Referencia</label><select id="filtro-ref-directas"><option value="">Todas</option>${refs.map(r=>`<option value="${r.ref}" ${f.ref===r.ref?"selected":""}>${r.ref}</option>`).join("")}</select></div>
+      <div class="field"><label>Estado</label><select id="filtro-estado-directas"><option value="">Todos</option><option value="Pago" ${f.estado==="Pago"?"selected":""}>Pago</option><option value="Por Cobrar" ${f.estado==="Por Cobrar"?"selected":""}>Por Cobrar</option></select></div>
+    </div>
+    ${rows.length===0 ? `<div class="empty">No hay ventas que coincidan con el filtro.</div>` : `
+    <div class="tablewrap"><table>
+      <thead><tr><th>Ref</th><th>Cantidad</th><th>Precio unit.</th><th>Total</th><th>Cliente</th><th>Estado</th><th>Fecha</th><th></th></tr></thead>
+      <tbody>${rows.map(v=>`<tr>
+        <td><span class="refcode">${v.ref}</span></td><td>${v.cantidad}</td><td>${money(v.precio)}</td><td>${money(v.total)}</td>
+        <td>${v.cliente}</td><td><span class="tag ${v.estado==='Pago'?'ok':'warn'}">${v.estado}</span></td><td>${v.fecha}</td>
+        <td><button class="btn danger" data-del="ventasDirectas" data-id="${v.id}">Eliminar</button></td>
+      </tr>`).join("")}</tbody>
+      <tfoot><tr style="font-weight:700;background:#F0EFFC;"><td>Total (${rows.length} filas)</td><td>${totalCantidad}</td><td></td><td>${money(totalMonto)}</td><td colspan="4"></td></tr></tfoot>
+    </table></div>`}
+  </div>`;
+}
+
+/* ---------- EXPORTAR ---------- */
+function renderExportar(){
+  return `
+  ${head("Exportar datos", "Descarga la información para analizarla en Excel, Tableau o Power BI.")}
+  <div class="card">
+    <h2>Exportar todo</h2>
+    <p class="hint">Genera un .zip con un CSV por cada tabla (producción, stock consolidado, entregas, ventas de vendedores, comisiones, venta por mayor y venta directa).</p>
+    <button class="btn" id="btn-export-all">Descargar todo (.zip)</button>
+  </div>
+  <div class="card">
+    <h2>Exportar tablas individuales</h2>
+    <div class="btnrow">
+      <button class="btn secondary sm" data-exp="producciones">Producción</button>
+      <button class="btn secondary sm" data-exp="stock">Stock consolidado</button>
+      <button class="btn secondary sm" data-exp="entregas">Entregas a vendedores</button>
+      <button class="btn secondary sm" data-exp="ventasVendedor">Ventas de vendedores</button>
+      <button class="btn secondary sm" data-exp="comisiones">Comisiones</button>
+      <button class="btn secondary sm" data-exp="ventasMayor">Venta por mayor</button>
+      <button class="btn secondary sm" data-exp="ventasDirectas">Venta directa</button>
+    </div>
+  </div>`;
+}
+
+/* ============================= HELPERS DE FORM ============================= */
+function vendedorOptions(){
+  if(state.vendedores.length===0) return `<option value="">Agrega un vendedor primero</option>`;
+  return state.vendedores.map(v=>`<option value="${v.id}">${v.nombre}</option>`).join("");
+}
+function nombreVendedor(id){
+  const v = state.vendedores.find(x=>x.id===id);
+  return v?v.nombre:"—";
+}
+function refOptions(refs){
+  if(refs.length===0) return `<option value="">Registra una producción primero</option>`;
+  return refs.map(r=>`<option value="${r.ref}">${r.ref} — ${r.animal}</option>`).join("");
+}
+
+/* ============================= CSV / ZIP EXPORT ============================= */
+function toCSV(rows){
+  if(rows.length===0) return "";
+  const headers = Object.keys(rows[0]);
+  const esc = v => `"${String(v===undefined||v===null?"":v).replace(/"/g,'""')}"`;
+  return [headers.join(","), ...rows.map(r=>headers.map(h=>esc(r[h])).join(","))].join("\n");
+}
+function datasetFor(key){
+  switch(key){
+    case "producciones": return state.producciones.map(p=>({ref:p.ref,coleccion:p.coleccion,tematica:p.tematica,color:p.color,animal:p.animal,cantidad:p.cantidad,fecha:p.fecha}));
+    case "stock": return stockPorRef().map(r=>({ref:r.ref,animal:r.animal,coleccion:r.coleccion,producido:r.producido,entregado_vendedores:r.entregado,vendido_vendedores:r.vendidoVend,vendido_mayor:r.vendidoMayor,vendido_directa:r.vendidoDirecta,stock_bodega:r.stockBodega,en_poder_vendedores:r.enManosVendedores}));
+    case "entregas": return state.entregas.map(e=>({ciclo:e.ciclo,vendedor:nombreVendedor(e.vendedorId),ref:e.ref,cantidad:e.cantidad,fecha:e.fecha}));
+    case "ventasVendedor": return state.ventasVendedor.map(v=>({ciclo:v.ciclo,vendedor:nombreVendedor(v.vendedorId),ref:v.ref,cantidad:v.cantidad,precio:v.precio,total:v.total,fecha:v.fecha}));
+    case "comisiones": return comisionesResumen().map(c=>({ciclo:c.ciclo,vendedor:c.vendedorNombre,unidades:c.unidades,total_vendido:c.total,tramo_pct:(c.tier*100),comision:c.comision,estado:c.pagada?"Pagada":"Pendiente"}));
+    case "ventasMayor": return state.ventasMayor.map(v=>({ref:v.ref,cantidad:v.cantidad,precio:v.precio,total:v.total,comprador:v.comprador,estado:"Pagado",fecha:v.fecha}));
+    case "ventasDirectas": return state.ventasDirectas.map(v=>({ref:v.ref,cantidad:v.cantidad,precio:v.precio,total:v.total,cliente:v.cliente,estado:v.estado,fecha:v.fecha}));
+    default: return [];
+  }
+}
+function downloadBlob(content, filename, type){
+  const blob = new Blob([content], {type});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function exportSingle(key){
+  const csv = toCSV(datasetFor(key));
+  downloadBlob(csv||"sin_datos\n", `glook_${key}.csv`, "text/csv;charset=utf-8;");
+}
+async function exportAll(){
+  const zip = new JSZip();
+  ["producciones","stock","entregas","ventasVendedor","comisiones","ventasMayor","ventasDirectas"].forEach(k=>{
+    zip.file(`glook_${k}.csv`, toCSV(datasetFor(k))||"sin_datos\n");
+  });
+  const blob = await zip.generateAsync({type:"blob"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "glook_caribe_vivo_export.zip";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ============================= EVENTOS ============================= */
+function attachHandlers(){
+  // navegación se maneja globalmente, no aquí
+
+  // eliminar filas
+  document.querySelectorAll("[data-del]").forEach(btn=>{
+    btn.onclick = async ()=>{
+      const key = btn.dataset.del, id = btn.dataset.id;
+      if(!confirm("¿Eliminar este registro?")) return;
+      state[key] = state[key].filter(r=>r.id!==id);
+      await saveState(); render();
+    };
+  });
+
+  // marcar comisión pagada
+  document.querySelectorAll("[data-pagar]").forEach(btn=>{
+    btn.onclick = async ()=>{
+      const [vendedorId, ciclo] = btn.dataset.pagar.split("|");
+      state.comisionesPagadas.push({id:uid(), vendedorId, ciclo:Number(ciclo), fecha:new Date().toISOString().slice(0,10)});
+      await saveState(); render();
+    };
+  });
+
+  // exportar individual
+  document.querySelectorAll("[data-exp]").forEach(btn=>{
+    btn.onclick = ()=> exportSingle(btn.dataset.exp);
+  });
+  const btnAll = document.getElementById("btn-export-all");
+  if(btnAll) btnAll.onclick = exportAll;
+
+  // preview de referencia en producción
+  const formP = document.getElementById("form-produccion");
+  if(formP){
+    const preview = ()=>{
+      const fd = new FormData(formP);
+      const numero = fd.get("numero") || sugerirNumero(fd.get("coleccion"),fd.get("tematica"),fd.get("color"),fd.get("animal"));
+      const ref = calcRef(fd.get("coleccion"),fd.get("tematica"),fd.get("color"),fd.get("animal"), numero);
+      document.getElementById("ref-preview").textContent = ref || "—";
+    };
+    formP.addEventListener("input", preview);
+    preview();
+    formP.onsubmit = async (ev)=>{
+      ev.preventDefault();
+      const fd = new FormData(formP);
+      const coleccion=fd.get("coleccion"), tematica=fd.get("tematica"), color=fd.get("color"), animal=fd.get("animal");
+      const numero = Number(fd.get("numero")) || sugerirNumero(coleccion,tematica,color,animal);
+      const ref = calcRef(coleccion,tematica,color,animal,numero);
+      state.producciones.push({id:uid(), coleccion,tematica,color,animal,numero,ref,cantidad:Number(fd.get("cantidad")),fecha:fd.get("fecha")});
+      await saveState(); render();
+    };
+  }
+
+  const fileProd = document.getElementById("file-produccion");
+  if(fileProd){
+    fileProd.addEventListener("change", (e)=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev)=>{
+        const {filas, errores} = parseLineasProduccion(ev.target.result);
+        previewCarga = filas;
+        renderPreviewCarga(errores);
+      };
+      reader.readAsText(file);
+    });
+    renderPreviewCarga([]); // restaura vista previa si el usuario navegó y volvió
+  }
+  const btnPlantilla = document.getElementById("btn-plantilla");
+  if(btnPlantilla) btnPlantilla.onclick = ()=>{
+    const sample = "coleccion,tematica,color,animal,cantidad,fecha,numero_lote\nCaribe Vivo,Fauna,Marfil,Guacamaya,6,2026-07-13,2\nCaribe Vivo,Fauna,Marfil,Tucan,10,2026-07-13,2\n";
+    downloadBlob(sample, "plantilla_produccion.txt", "text/plain;charset=utf-8;");
+  };
+
+  const formC = document.getElementById("form-ciclos");
+  if(formC) formC.onsubmit = async (ev)=>{
+    ev.preventDefault();
+    const fd = new FormData(formC);
+    state.ciclosConfig = {
+      inicio: fd.get("inicio"),
+      duracion: Number(fd.get("duracion")),
+      diasCorte: fd.get("diasCorte").split(",").map(s=>Number(s.trim())).filter(Boolean),
+    };
+    await saveState(); render();
+  };
+
+  const formV = document.getElementById("form-vendedor");
+  if(formV) formV.onsubmit = async (ev)=>{
+    ev.preventDefault();
+    const fd = new FormData(formV);
+    state.vendedores.push({id:uid(), nombre:fd.get("nombre")});
+    await saveState(); render();
+  };
+
+  const formE = document.getElementById("form-entrega");
+  if(formE) formE.onsubmit = async (ev)=>{
+    ev.preventDefault();
+    const fd = new FormData(formE);
+    state.entregas.push({id:uid(), ciclo:Number(fd.get("ciclo")), vendedorId:fd.get("vendedorId"), ref:fd.get("ref"), cantidad:Number(fd.get("cantidad")), fecha:fd.get("fecha")});
+    await saveState(); render();
+  };
+
+  const fileEntregas = document.getElementById("file-entregas");
+  if(fileEntregas){
+    fileEntregas.addEventListener("change", (e)=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev)=>{
+        const {filas, errores} = parseLineasEntregas(ev.target.result);
+        previewEntregas = filas;
+        renderPreviewEntregas(errores);
+      };
+      reader.readAsText(file);
+    });
+    renderPreviewEntregas([]);
+  }
+  const btnPlantillaEntregas = document.getElementById("btn-plantilla-entregas");
+  if(btnPlantillaEntregas) btnPlantillaEntregas.onclick = ()=>{
+    const sample = "ciclo,vendedor,ref_o_animal,cantidad,fecha\n1,Zoraida,Guacamaya,3,2026-07-12\n1,Martha,Tucan,1,2026-07-12\n";
+    downloadBlob(sample, "plantilla_entregas.txt", "text/plain;charset=utf-8;");
+  };
+
+  const formVV = document.getElementById("form-ventavendedor");
+  if(formVV) formVV.onsubmit = async (ev)=>{
+    ev.preventDefault();
+    const fd = new FormData(formVV);
+    const cantidad = Number(fd.get("cantidad")), precio = Number(fd.get("precio"));
+    state.ventasVendedor.push({id:uid(), ciclo:Number(fd.get("ciclo")), vendedorId:fd.get("vendedorId"), ref:fd.get("ref"), cantidad, precio, total:cantidad*precio, fecha:fd.get("fecha")});
+    await saveState(); render();
+  };
+
+  const formM = document.getElementById("form-mayor");
+  if(formM){
+    const cantIn = formM.querySelector("[name=cantidad]");
+    const precioIn = formM.querySelector("[name=precio]");
+    cantIn.addEventListener("input", ()=>{ precioIn.value = precioMayorSugerido(cantIn.value); });
+    formM.onsubmit = async (ev)=>{
+      ev.preventDefault();
+      const fd = new FormData(formM);
+      const cantidad = Number(fd.get("cantidad")), precio = Number(fd.get("precio"));
+      state.ventasMayor.push({id:uid(), ref:fd.get("ref"), cantidad, precio, total:cantidad*precio, comprador:fd.get("comprador"), fecha:fd.get("fecha")});
+      await saveState(); render();
+    };
+  }
+
+  const formD = document.getElementById("form-directa");
+  if(formD) formD.onsubmit = async (ev)=>{
+    ev.preventDefault();
+    const fd = new FormData(formD);
+    const cantidad = Number(fd.get("cantidad")), precio = Number(fd.get("precio"));
+    state.ventasDirectas.push({id:uid(), ref:fd.get("ref"), cantidad, precio, total:cantidad*precio, cliente:fd.get("cliente"), estado:fd.get("estado"), fecha:fd.get("fecha")});
+    await saveState(); render();
+  };
+
+  const fileDirectas = document.getElementById("file-directas");
+  if(fileDirectas){
+    fileDirectas.addEventListener("change", (e)=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev)=>{
+        const {filas, errores} = parseLineasDirectas(ev.target.result);
+        previewDirectas = filas;
+        renderPreviewDirectas(errores);
+      };
+      reader.readAsText(file);
+    });
+    renderPreviewDirectas([]);
+  }
+  const btnPlantillaDirectas = document.getElementById("btn-plantilla-directas");
+  if(btnPlantillaDirectas) btnPlantillaDirectas.onclick = ()=>{
+    const sample = "ref_o_animal,cantidad,precio,cliente,estado,fecha\nFlamenco,1,12000,Stefany,Pago,2026-07-12\nDelfin,1,12000,Stefany,Por Cobrar,2026-07-12\n";
+    downloadBlob(sample, "plantilla_ventas_directas.txt", "text/plain;charset=utf-8;");
+  };
+
+  /* ---- filtros de historial ---- */
+  const bindFiltro = (id, tabla, campo, esNumero)=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    const ev = el.tagName === "SELECT" ? "change" : "input";
+    el.addEventListener(ev, ()=>{
+      filtros[tabla][campo] = esNumero ? el.value : el.value;
+      render();
+    });
+  };
+  bindFiltro("filtro-texto-produccion","producciones","texto");
+  bindFiltro("filtro-coleccion-produccion","producciones","coleccion");
+  bindFiltro("filtro-ref-produccion","producciones","ref");
+
+  bindFiltro("filtro-texto-entregas","entregas","texto");
+  bindFiltro("filtro-vendedor-entregas","entregas","vendedorId");
+  bindFiltro("filtro-ref-entregas","entregas","ref");
+  bindFiltro("filtro-ciclo-entregas","entregas","ciclo");
+
+  bindFiltro("filtro-texto-ventasvendedor","ventasVendedor","texto");
+  bindFiltro("filtro-vendedor-ventasvendedor","ventasVendedor","vendedorId");
+  bindFiltro("filtro-ref-ventasvendedor","ventasVendedor","ref");
+  bindFiltro("filtro-ciclo-ventasvendedor","ventasVendedor","ciclo");
+
+  bindFiltro("filtro-texto-mayor","ventasMayor","texto");
+  bindFiltro("filtro-ref-mayor","ventasMayor","ref");
+
+  bindFiltro("filtro-texto-directas","ventasDirectas","texto");
+  bindFiltro("filtro-ref-directas","ventasDirectas","ref");
+  bindFiltro("filtro-estado-directas","ventasDirectas","estado");
+}
+
+document.querySelectorAll(".navbtn").forEach(b=>{
+  b.addEventListener("click", ()=>{ currentTab = b.dataset.tab; render(); });
+});
+
+/* ============================= PIN DE EQUIPO ============================= */
+function mostrarApp(){
+  document.getElementById("pin-gate").style.display = "none";
+  document.getElementById("app-root").style.display = "flex";
+  loadState();
+}
+if(localStorage.getItem("glook_pin_ok") === "true"){
+  mostrarApp();
+}
+document.getElementById("form-pin").addEventListener("submit", async (ev)=>{
+  ev.preventDefault();
+  const val = document.getElementById("input-pin").value.trim();
+  const hashIngresado = await sha256(val);
+  if(hashIngresado === PIN_HASH_EQUIPO){
+    localStorage.setItem("glook_pin_ok","true");
+    mostrarApp();
+  }else{
+    document.getElementById("pin-error").textContent = "PIN incorrecto, intenta de nuevo.";
+    document.getElementById("input-pin").value = "";
+    document.getElementById("input-pin").focus();
+  }
+});
+</script>
+</body>
+</html>

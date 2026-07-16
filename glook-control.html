@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GLOOK · Control</title>
+<title>GLOOK · Control Caribe Vivo</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -1046,7 +1046,7 @@ function renderDirectas(){
       <tbody>${rows.map(v=>`<tr>
         <td><span class="refcode">${v.ref}</span></td><td>${v.cantidad}</td><td>${money(v.precio)}</td><td>${money(v.total)}</td>
         <td>${v.cliente}</td><td><span class="tag ${v.estado==='Pago'?'ok':'warn'}">${v.estado}</span></td><td>${v.fecha}</td>
-        <td><button class="btn danger" data-del="ventasDirectas" data-id="${v.id}">Eliminar</button></td>
+        <td><button class="btn danger" data-del="ventasDirectas" data-id="${v.id}">Eliminar</button>${v.estado==="Por Cobrar" ? `<button class="btn secondary sm" data-marcar-pago="${v.id}" style="margin-left:6px;">Marcar como Pago</button>` : ""}</td>
       </tr>`).join("")}</tbody>
       <tfoot><tr style="font-weight:700;background:#F0EFFC;"><td>Total (${rows.length} filas)</td><td>${totalCantidad}</td><td></td><td>${money(totalMonto)}</td><td colspan="4"></td></tr></tfoot>
     </table></div>`}
@@ -1153,6 +1153,16 @@ function attachHandlers(){
     btn.onclick = async ()=>{
       const [vendedorId, ciclo] = btn.dataset.pagar.split("|");
       state.comisionesPagadas.push({id:uid(), vendedorId, ciclo:Number(ciclo), fecha:new Date().toISOString().slice(0,10)});
+      await saveState(); render();
+    };
+  });
+
+  // marcar venta directa como pago
+  document.querySelectorAll("[data-marcar-pago]").forEach(btn=>{
+    btn.onclick = async ()=>{
+      const id = btn.dataset.marcarPago;
+      const venta = state.ventasDirectas.find(v=>v.id===id);
+      if(venta) venta.estado = "Pago";
       await saveState(); render();
     };
   });

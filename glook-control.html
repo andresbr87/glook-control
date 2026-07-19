@@ -256,6 +256,7 @@ let filtros = {
   ventasMayor: { texto:"", ref:"" },
   ventasDirectas: { texto:"", ref:"", estado:"" },
 };
+let ordenStock = { campo:"", direccion:"desc" };
 
 async function loadState(){
   await iniciarFirebase();
@@ -617,7 +618,7 @@ function head(title, sub){
 
 /* ---------- DASHBOARD ---------- */
 function renderDashboard(){
-  const stock = stockPorRef();
+  let stock = stockPorRef();
   const totalProducido = stock.reduce((s,r)=>s+r.producido,0);
   const totalStock = stock.reduce((s,r)=>s+r.stockBodega,0);
   const totalVendido = stock.reduce((s,r)=>s+r.totalVendido,0);
@@ -627,6 +628,21 @@ function renderDashboard(){
   const valorDirectaPorCobrar = state.ventasDirectas.filter(v=>v.estado==="Por Cobrar").reduce((s,v)=>s+Number(v.total||0),0);
   const valorVendedores = state.ventasVendedor.reduce((s,v)=>s+Number(v.total||0),0);
   const comisionTotal = comisionesResumen().reduce((s,c)=>s+c.comision,0);
+  const valorCobrado = valorMayor+valorDirecta+valorVendedores;
+  const valorNeto = valorCobrado - comisionTotal;
+
+  if(ordenStock.campo){
+    const campo = ordenStock.campo, dir = ordenStock.direccion;
+    stock = [...stock].sort((a,b)=>{
+      const va = a[campo], vb = b[campo];
+      let cmp;
+      if(typeof va === "number" && typeof vb === "number") cmp = va-vb;
+      else cmp = String(va).localeCompare(String(vb));
+      return dir==="asc" ? cmp : -cmp;
+    });
+  }
+  const flecha = campo => ordenStock.campo===campo ? (ordenStock.direccion==="asc"?" ▲":" ▼") : "";
+  const th = (campo,label) => `<th data-sort-stock="${campo}" style="cursor:pointer;user-select:none;">${label}${flecha(campo)}</th>`;
 
   return `
   ${head("Dashboard", "Resumen general de producción, stock y ventas de todas las referencias.")}
@@ -634,12 +650,13 @@ function renderDashboard(){
     <div class="kpi"><div class="lbl">Unidades producidas</div><div class="val">${totalProducido}</div></div>
     <div class="kpi"><div class="lbl">En stock (bodega)</div><div class="val">${totalStock}</div></div>
     <div class="kpi"><div class="lbl">Unidades vendidas</div><div class="val">${totalVendido}</div></div>
-    <div class="kpi"><div class="lbl">Valor cobrado (Pago)</div><div class="val" style="font-size:19px">${money(valorMayor+valorDirecta+valorVendedores)}</div></div>
+    <div class="kpi"><div class="lbl">Valor cobrado (Pago)</div><div class="val" style="font-size:19px">${money(valorCobrado)}</div></div>
   </div>
-  <div class="grid grid-3" style="margin-top:14px;">
+  <div class="grid grid-4" style="margin-top:14px;">
     <div class="kpi"><div class="lbl">Ventas por mayor</div><div class="val" style="font-size:18px">${money(valorMayor)}</div></div>
     <div class="kpi"><div class="lbl">Ventas directas (Pago)</div><div class="val" style="font-size:18px">${money(valorDirecta)}</div></div>
     <div class="kpi"><div class="lbl">Comisiones calculadas</div><div class="val" style="font-size:18px">${money(comisionTotal)}</div></div>
+    <div class="kpi" style="border-color:var(--indigo);"><div class="lbl">Valor Neto (cobrado − comisiones)</div><div class="val" style="font-size:18px;color:var(--indigo);">${money(valorNeto)}</div></div>
   </div>
   ${valorDirectaPorCobrar>0 ? `<div class="kpi" style="margin-top:14px;max-width:280px;"><div class="lbl">Por cobrar (ventas directas)</div><div class="val" style="font-size:18px;color:var(--amber);">${money(valorDirectaPorCobrar)}</div></div>` : ""}
 
@@ -651,10 +668,12 @@ function renderDashboard(){
   </div>` : ""}
 
   <div class="card">
-    <h2>Stock por referencia <span class="cnt">(${stock.length} referencias)</span></h2>
+    <h2>Stock por referencia <span class="cnt">(${stock.length} referencias) — clic en un encabezado para ordenar</span></h2>
     ${stock.length===0 ? `<div class="empty">Aún no hay producciones registradas. Ve a la pestaña "Producción" para agregar la primera.</div>` : `
     <div class="tablewrap"><table>
-      <thead><tr><th>Ref</th><th>Animal</th><th>Colección</th><th>Producido</th><th>Entregado a vend.</th><th>Vendido vend.</th><th>Vendido mayor</th><th>Vendido directa</th><th>En bodega</th><th>En poder vend.</th></tr></thead>
+      <thead><tr>
+        ${th("ref","Ref")}${th("animal","Animal")}${th("coleccion","Colección")}${th("producido","Producido")}${th("entregado","Entregado a vend.")}${th("vendidoVend","Vendido vend.")}${th("vendidoMayor","Vendido mayor")}${th("vendidoDirecta","Vendido directa")}${th("stockBodega","En bodega")}${th("enManosVendedores","En poder vend.")}
+      </tr></thead>
       <tbody>
       ${stock.map(r=>`<tr>
         <td><span class="refcode">${r.ref}</span></td>
@@ -748,6 +767,13 @@ function renderCiclos(){
   const cfg = state.ciclosConfig;
   const ciclos = cfg.inicio ? listaCiclos(10) : [];
   const actual = cicloActualNumero();
+  const comisiones = comisionesResumen();
+  const resumenPorCiclo = (numero)=>{
+    const filas = comisiones.filter(c=>c.ciclo===numero);
+    const bruto = filas.reduce((s,c)=>s+c.total,0);
+    const comision = filas.reduce((s,c)=>s+c.comision,0);
+    return { bruto, comision, neto: bruto-comision };
+  };
   return `
   ${head("Ciclos de venta", "Define el inicio del ciclo 1 y la duración; las fechas de corte se calculan solas.")}
   <div class="card">
@@ -762,15 +788,21 @@ function renderCiclos(){
   </div>
   <div class="card">
     <h2>Ciclos calculados <span class="cnt">${cfg.inicio? `— ciclo actual: Ciclo ${actual}`:""}</span></h2>
+    <p class="hint">Bruto / Comisión / Neto se calculan solo con lo reportado por los vendedores en ese ciclo (venta por mayor y venta directa no están amarradas a un ciclo).</p>
     ${!cfg.inicio ? `<div class="empty">Configura la fecha de inicio para generar los ciclos.</div>` : `
     <div class="tablewrap"><table>
-      <thead><tr><th>Ciclo</th><th>Inicio</th>${cfg.diasCorte.map((d,i)=>`<th>Corte ${i+1} (día ${d})</th>`).join("")}<th>Pago comisión / inicio siguiente</th></tr></thead>
-      <tbody>${ciclos.map(c=>`<tr ${c.numero===actual?'style="background:#F0EFFC;"':''}>
+      <thead><tr><th>Ciclo</th><th>Inicio</th>${cfg.diasCorte.map((d,i)=>`<th>Corte ${i+1} (día ${d})</th>`).join("")}<th>Pago comisión / inicio siguiente</th><th>Bruto vendido</th><th>Comisión</th><th>Neto</th></tr></thead>
+      <tbody>${ciclos.map(c=>{
+        const r = resumenPorCiclo(c.numero);
+        return `<tr ${c.numero===actual?'style="background:#F0EFFC;"':''}>
         <td><b>${c.numero===actual?"▶ ":""}Ciclo ${c.numero}</b></td>
         <td>${fmtFecha(c.inicio)}</td>
         ${c.cortes.map(f=>`<td>${fmtFecha(f)}</td>`).join("")}
         <td><b>${fmtFecha(c.pago)}</b></td>
-      </tr>`).join("")}</tbody>
+        <td>${money(r.bruto)}</td>
+        <td>${money(r.comision)}</td>
+        <td><b>${money(r.neto)}</b></td>
+      </tr>`;}).join("")}</tbody>
     </table></div>`}
   </div>`;
 }
@@ -1349,6 +1381,20 @@ function attachHandlers(){
   bindFiltro("filtro-texto-directas","ventasDirectas","texto");
   bindFiltro("filtro-ref-directas","ventasDirectas","ref");
   bindFiltro("filtro-estado-directas","ventasDirectas","estado");
+
+  /* ---- orden de la tabla de stock (Dashboard) ---- */
+  document.querySelectorAll("[data-sort-stock]").forEach(th=>{
+    th.onclick = ()=>{
+      const campo = th.dataset.sortStock;
+      if(ordenStock.campo===campo){
+        ordenStock.direccion = ordenStock.direccion==="desc" ? "asc" : "desc";
+      }else{
+        ordenStock.campo = campo;
+        ordenStock.direccion = "desc";
+      }
+      render();
+    };
+  });
 }
 
 document.querySelectorAll(".navbtn").forEach(b=>{

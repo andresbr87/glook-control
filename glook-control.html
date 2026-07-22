@@ -599,12 +599,12 @@ function nombreMes(mes){
 }
 function nombreInsumo(id){ const i = state.insumos.find(x=>x.id===id); return i ? i.nombre : "—"; }
 function nombreLote(id){ const l = state.lotes.find(x=>x.id===id); return l ? l.nombre : "—"; }
-function unidadesProducidasHistoricas(){
-  // Lee el total histórico de Producción (solo lectura, no modifica esa pestaña)
-  return state.producciones.reduce((s,p)=>s+Number(p.cantidad||0), 0);
+function unidadesRegistradasEnLotes(){
+  // Usa el registro manual de "Lotes" dentro de Gastos — no lee la pestaña Producción.
+  return state.lotes.reduce((s,l)=>s+Number(l.cantidadMonederos||0), 0);
 }
 function resumenInsumos(){
-  const totalProducido = unidadesProducidasHistoricas();
+  const totalProducido = unidadesRegistradasEnLotes();
   return state.insumos.map(i=>{
     const compras = state.comprasInsumos.filter(c=>c.insumoId===i.id);
     const totalComprado = compras.reduce((s,c)=>s+Number(c.cantidad||0),0);
@@ -625,9 +625,6 @@ function pronosticoProduccion(){
   const limitantes = filas.filter(f=>f.monederosPosibles===minVal).map(f=>f.nombre);
   return { minVal, limitantes };
 }
-function costoInsumoPorUnidadPromedio(){
-  return resumenInsumos().reduce((s,f)=>s+Number(f.costoPorMonedero||0), 0);
-}
 function resumenPorLote(){
   return state.lotes.map(l=>{
     const compras = state.comprasInsumos.filter(c=>c.loteId===l.id);
@@ -638,21 +635,20 @@ function resumenPorLote(){
   });
 }
 function resumenMensualGastos(){
+  // Totales en dinero por mes, usando el gasto REAL registrado (compras + gastos generales).
+  // No usa la pestaña Producción para nada.
   const meses = new Set();
   state.gastosGenerales.forEach(g=>{ if(g.mes) meses.add(g.mes); });
-  state.producciones.forEach(p=>{ if(p.fecha) meses.add(mesDeFecha(p.fecha)); });
-  const costoUnitInsumos = costoInsumoPorUnidadPromedio();
+  state.comprasInsumos.forEach(c=>{ if(c.fecha) meses.add(mesDeFecha(c.fecha)); });
   const pct = Number(state.configGastos.porcentajeOtros||0)/100;
   return [...meses].sort().map(mes=>{
-    const unidades = state.producciones.filter(p=>mesDeFecha(p.fecha)===mes).reduce((s,p)=>s+Number(p.cantidad||0),0);
-    const costoInsumos = unidades * costoUnitInsumos;
+    const costoInsumos = state.comprasInsumos.filter(c=>mesDeFecha(c.fecha)===mes).reduce((s,c)=>s+Number(c.costoTotal||0),0);
     const transporte = state.gastosGenerales.filter(g=>g.mes===mes && g.categoria==="Transporte").reduce((s,g)=>s+Number(g.monto||0),0);
     const luz = state.gastosGenerales.filter(g=>g.mes===mes && g.categoria==="Luz").reduce((s,g)=>s+Number(g.monto||0),0);
     const subtotal = costoInsumos + transporte + luz;
     const otros = subtotal * pct;
     const total = subtotal + otros;
-    const costoUnitario = unidades>0 ? total/unidades : 0;
-    return { mes, unidades, costoInsumos, transporte, luz, subtotal, otros, total, costoUnitario };
+    return { mes, costoInsumos, transporte, luz, subtotal, otros, total };
   }).sort((a,b)=>b.mes.localeCompare(a.mes));
 }
 
@@ -1239,7 +1235,7 @@ function renderGastos(){
 
   <div class="card">
     <h2>Material restante y pronóstico de producción</h2>
-    <p class="hint">"Consumido" toma en cuenta TODA la producción histórica registrada en la pestaña Producción. "Monederos posibles" es lo que te alcanza con el material restante de ese insumo específico.</p>
+    <p class="hint">"Consumido" toma en cuenta la suma de todos los <b>Lotes</b> que hayas registrado arriba (dato manual) — no depende de la pestaña Producción. "Monederos posibles" es lo que te alcanza con el material restante de ese insumo específico.</p>
     ${insumos.length===0 ? `<div class="empty">Registra insumos y compras para ver este cálculo.</div>` : `
     <div class="tablewrap"><table>
       <thead><tr><th>Insumo</th><th>Total comprado</th><th>Costo promedio / unidad</th><th>Consumido (histórico)</th><th>Material restante</th><th>Monederos posibles</th></tr></thead>
@@ -1288,14 +1284,14 @@ function renderGastos(){
 
   <div class="card">
     <h2>Resumen mensual de costos <span class="cnt">(${resumen.length} meses)</span></h2>
-    <p class="hint">Costo de insumos = unidades producidas ese mes × costo promedio de insumo por monedero (según tus compras registradas).</p>
+    <p class="hint">Costo de insumos = total real de tus Compras de insumos de ese mes (por fecha de compra). No depende de la pestaña Producción.</p>
     ${resumen.length===0 ? `<div class="empty">Aún no hay datos suficientes.</div>` : `
     <div class="tablewrap"><table>
-      <thead><tr><th>Mes</th><th>Unidades producidas</th><th>Costo insumos</th><th>Transporte</th><th>Luz</th><th>Subtotal</th><th>Otros (${state.configGastos.porcentajeOtros}%)</th><th>Total gastos</th><th>Costo / monedero</th></tr></thead>
+      <thead><tr><th>Mes</th><th>Costo insumos</th><th>Transporte</th><th>Luz</th><th>Subtotal</th><th>Otros (${state.configGastos.porcentajeOtros}%)</th><th>Total gastos</th></tr></thead>
       <tbody>${resumen.map(r=>`<tr>
-        <td><b>${nombreMes(r.mes)}</b></td><td>${r.unidades}</td><td>${money(r.costoInsumos)}</td><td>${money(r.transporte)}</td>
+        <td><b>${nombreMes(r.mes)}</b></td><td>${money(r.costoInsumos)}</td><td>${money(r.transporte)}</td>
         <td>${money(r.luz)}</td><td>${money(r.subtotal)}</td><td>${money(r.otros)}</td>
-        <td><b>${money(r.total)}</b></td><td><b>${money(r.costoUnitario)}</b></td>
+        <td><b>${money(r.total)}</b></td>
       </tr>`).join("")}</tbody>
     </table></div>`}
   </div>`;
@@ -1363,7 +1359,7 @@ function datasetFor(key){
     case "insumos": return resumenInsumos().map(i=>({nombre:i.nombre,unidad_compra:i.unidadCompra,rendimiento:i.rendimiento,total_comprado:i.totalComprado,costo_promedio_unidad:i.costoPromedio,consumido_historico:i.consumido,material_restante:i.materialRestante,monederos_posibles:i.monederosPosibles}));
     case "comprasInsumos": return state.comprasInsumos.map(c=>({insumo:nombreInsumo(c.insumoId),lote:nombreLote(c.loteId),cantidad:c.cantidad,costo_total:c.costoTotal,proveedor:c.proveedor,fecha:c.fecha}));
     case "gastosGenerales": return state.gastosGenerales.map(g=>({mes:g.mes,categoria:g.categoria,descripcion:g.descripcion,monto:g.monto}));
-    case "resumenGastosMensual": return resumenMensualGastos().map(r=>({mes:r.mes,unidades_producidas:r.unidades,costo_insumos:r.costoInsumos,transporte:r.transporte,luz:r.luz,subtotal:r.subtotal,otros:r.otros,total_gastos:r.total,costo_por_monedero:r.costoUnitario}));
+    case "resumenGastosMensual": return resumenMensualGastos().map(r=>({mes:r.mes,costo_insumos:r.costoInsumos,transporte:r.transporte,luz:r.luz,subtotal:r.subtotal,otros:r.otros,total_gastos:r.total}));
     default: return [];
   }
 }
